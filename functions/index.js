@@ -413,18 +413,18 @@ export async function onRequest(context) {
   }
   if (customCardCss) headInjections += `<style>${customCardCss}</style>`;
 
-  // 全局站点数据：allSites 已只含前端所需字段（SQL 精简），直接序列化无需再拷贝
-  // 注入点挪到 </body> 前（见下方 replace），避免阻塞 <head> 解析
+  // 全局站点数据与布局配置：SQL 已精简字段，直接序列化无需再拷贝
+  // 两者都挪到 </body> 前注入（见下方 replace），避免阻塞 <head> 解析
   const safeSitesJson = JSON.stringify(allSites).replace(/</g, '\\u003c');
-
-  // 布局配置
-  headInjections += `<script>
-    window.IORI_LAYOUT_CONFIG = {
-      hideDesc: ${S.layout_hide_desc}, hideLinks: ${S.layout_hide_links}, hideCategory: ${S.layout_hide_category},
-      gridCols: "${S.layout_grid_cols}", cardStyle: "${S.layout_card_style}",
-      enableFrostedGlass: ${S.layout_enable_frosted_glass}, rememberLastCategory: ${S.home_remember_last_category}
-    };
-  </script>`;
+  const safeLayoutConfigJson = JSON.stringify({
+    hideDesc: S.layout_hide_desc,
+    hideLinks: S.layout_hide_links,
+    hideCategory: S.layout_hide_category,
+    gridCols: S.layout_grid_cols,
+    cardStyle: S.layout_card_style,
+    enableFrostedGlass: S.layout_enable_frosted_glass,
+    rememberLastCategory: S.home_remember_last_category,
+  }).replace(/</g, '\\u003c');
 
   // --- 一次性替换 </head> ---
   html = html.replace('</head>', headInjections + '</head>');
@@ -436,7 +436,7 @@ export async function onRequest(context) {
   );
   html = html.replace('</body>', '</div></body>');
 
-  // 将 IORI_SITES 数据注入到 main.js 之前，使其在 body 底部而非 <head>，加快 FCP
+  // 将 IORI_SITES / IORI_LAYOUT_CONFIG 数据注入到 main.js 之前，使其在 body 底部而非 <head>，加快 FCP
   // - 字面量匹配：避免未来模板给 <script> 加 defer/type 等属性时正则静默失配
   // - 函数形式 replacement：规避用户数据中可能含 $&、$1 等被当作 back-reference
   const mainJsMarker = '<script src="/js/main.js';
@@ -445,7 +445,7 @@ export async function onRequest(context) {
   } else {
     html = html.replace(
       mainJsMarker,
-      () => `<script>window.IORI_SITES = ${safeSitesJson};</script>\n  ${mainJsMarker}`
+      () => `<script>window.IORI_SITES=${safeSitesJson};window.IORI_LAYOUT_CONFIG=${safeLayoutConfigJson};</script>\n  ${mainJsMarker}`
     );
   }
 
