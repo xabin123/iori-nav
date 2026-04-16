@@ -45,7 +45,10 @@ export function renderSiteCards(sites, settings) {
     };
   });
 
-  return processed.map(({ site, safeName, safeCatalog, safeDesc, normalizedUrl, safeUrl, safeDisplayUrl, logoUrl, cardInitial, hasValidUrl }) => {
+  return processed.map(({ site, safeName, safeCatalog, safeDesc, normalizedUrl, safeUrl, safeDisplayUrl, logoUrl, cardInitial, hasValidUrl }, index) => {
+    // 首屏（约前 8 张）logo 用 eager + fetchpriority=high 改善 LCP；其余 lazy
+    const isAboveFold = index < 8;
+    const imgLoadingAttrs = isAboveFold ? 'fetchpriority="high" decoding="async"' : 'loading="lazy" decoding="async"';
 
     const descHtml = hideDesc ? '' : `<p class="mt-2 text-sm text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-2" title="${safeDesc}">${safeDesc}</p>`;
 
@@ -71,7 +74,7 @@ export function renderSiteCards(sites, settings) {
             <div class="flex items-start">
               <div class="site-icon flex-shrink-0 mr-4 transition-all duration-300">
                 ${logoUrl
-        ? `<img src="${escapeHTML(logoUrl)}" alt="${safeName}" width="40" height="40" class="w-10 h-10 rounded-lg object-cover bg-gray-100 dark:bg-gray-700" decoding="async" loading="lazy">`
+        ? `<img src="${escapeHTML(logoUrl)}" alt="${safeName}" width="40" height="40" class="w-10 h-10 rounded-lg object-cover bg-gray-100 dark:bg-gray-700" ${imgLoadingAttrs}>`
         : `<div class="w-10 h-10 rounded-lg bg-primary-600 flex items-center justify-center text-white font-semibold text-lg shadow-inner">${cardInitial}</div>`
       }
               </div>

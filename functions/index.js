@@ -101,9 +101,10 @@ export async function onRequest(context) {
       console.warn('Settings cache read failed:', e);
     }
     const result = await env.NAV_DB.prepare(`SELECT key, value FROM settings WHERE key IN (${settingsPlaceholders})`).bind(...settingsKeys).all();
-    // 异步写入缓存，1h TTL
+    // 异步写入缓存，24h TTL；POST settings 时会主动清除（见 api/settings.js），
+    // 较长 TTL 减少 D1 兜底查询次数
     if (result.results && env.NAV_AUTH) {
-      context.waitUntil(env.NAV_AUTH.put(settingsCacheKey, JSON.stringify(result.results), { expirationTtl: 3600 }));
+      context.waitUntil(env.NAV_AUTH.put(settingsCacheKey, JSON.stringify(result.results), { expirationTtl: 86400 }));
     }
     return result;
   };
@@ -486,6 +487,9 @@ export async function onRequest(context) {
   };
   html = html.replace(/\{\{(\w+)\}\}/g, (_, key) => replacements[key] ?? '');
   html = html.replace('grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6', gridClass);
+
+  // 压缩标签间空白，减小 HTML 体积（项目无 <pre>/<textarea>，安全）
+  html = html.replace(/>\s+</g, '><');
 
   // === 17. 返回响应 ===
   const response = new Response(html, {
